@@ -21,17 +21,35 @@ Open [http://localhost:3000](http://localhost:3000) and allow location access.
 
 ## Features
 
+**Finder core**
+
 - **Match / Team / Vibe filters** that actually drive the map
-- **Tribe ranking** — venues scored by fan-base fit, vibe, screens, capacity & distance
+- **Tribe ranking** — venues scored by fan-base fit, vibe, screens, capacity, crowd & distance
 - **Ranked results list** (left rail on desktop, bottom sheet on mobile) synced with the map
 - **Top-pick highlighting** on the map, plus dimming of non-matching spots
 - **Distance from you** and one-tap **Directions**
-- Sample knockout-stage **fixtures** anchored to "today" so the schedule always feels live
+
+**Social proof & plans**
+
+- **Live crowd estimates** + busyness per venue for the selected match
+- **RSVP** ("I'm in") and **save** favourites — persisted locally
+- **Shareable match-day plan** via a deep link (`?plan=…`)
+
+**Real data & reach**
+
+- **Live fixtures** via `/api/fixtures` (football-data.org) with graceful fallback to a bundled sample schedule
+- **Real venues from OpenStreetMap** (Overpass) with a "Search this area" button — works in any city, no key
+- **Add your own spot** by dropping a pin on the map
+- **Kick-off alerts** for your team, with optional browser notifications
+
+## Configuration
+
+- `FOOTBALL_DATA_API_KEY` (optional): enables live World Cup fixtures from
+  [football-data.org](https://www.football-data.org/). Without it, the app uses
+  bundled sample fixtures anchored to "today".
 
 ## Next
 
-- Pull real fixtures from a live API
-- Nearby venues from OpenStreetMap (Overpass) so it works in any city
-- Live crowd / headcount + RSVP for social proof
-- Save favourites and share a match-day plan
+- Persist plans/RSVPs to a backend for real cross-device social proof
+- User reviews & photos on venues
 - AI concierge: natural-language search with explanations
