@@ -12,6 +12,9 @@ export const SAMPLE_VENUES: Venue[] = [
     screens: "large",
     seating: "mixed",
     vibes: ["loud", "standing-ok"],
+    capacity: 220,
+    priceLevel: 2,
+    bookable: true,
   },
   {
     id: "the-draft-house",
@@ -23,6 +26,9 @@ export const SAMPLE_VENUES: Venue[] = [
     screens: "large",
     seating: "seated",
     vibes: ["chill", "big-screen"],
+    capacity: 140,
+    priceLevel: 3,
+    bookable: true,
   },
   {
     id: "brixton-breeze",
@@ -34,6 +40,9 @@ export const SAMPLE_VENUES: Venue[] = [
     screens: "medium",
     seating: "mixed",
     vibes: ["loud", "singing"],
+    capacity: 180,
+    priceLevel: 2,
+    bookable: false,
   },
   {
     id: "soho-kickoff",
@@ -45,6 +54,9 @@ export const SAMPLE_VENUES: Venue[] = [
     screens: "large",
     seating: "standing",
     vibes: ["loud", "packed"],
+    capacity: 260,
+    priceLevel: 3,
+    bookable: true,
   },
   {
     id: "camden-pitch",
@@ -56,6 +68,9 @@ export const SAMPLE_VENUES: Venue[] = [
     screens: "medium",
     seating: "mixed",
     vibes: ["chill", "outdoor"],
+    capacity: 160,
+    priceLevel: 2,
+    bookable: false,
   },
   {
     id: "elephant-screen",
@@ -67,6 +82,9 @@ export const SAMPLE_VENUES: Venue[] = [
     screens: "large",
     seating: "mixed",
     vibes: ["loud", "big-nights"],
+    capacity: 300,
+    priceLevel: 1,
+    bookable: true,
   },
   {
     id: "borough-tap",
@@ -78,6 +96,9 @@ export const SAMPLE_VENUES: Venue[] = [
     screens: "medium",
     seating: "seated",
     vibes: ["chill", "food"],
+    capacity: 120,
+    priceLevel: 2,
+    bookable: true,
   },
   {
     id: "hackney-ends",
@@ -89,5 +110,8 @@ export const SAMPLE_VENUES: Venue[] = [
     screens: "large",
     seating: "mixed",
     vibes: ["loud", "standing-ok"],
+    capacity: 200,
+    priceLevel: 2,
+    bookable: false,
   },
 ];
