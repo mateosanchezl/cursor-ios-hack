@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Tv } from "lucide-react";
 import Map, {
   Marker,
@@ -11,21 +11,43 @@ import Map, {
 } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { SAMPLE_VENUES } from "@/data/sample-venues";
 import {
   DEFAULT_ZOOM,
   FALLBACK_LOCATION,
   LOCATED_ZOOM,
   MAP_STYLE,
+  MIN_VENUE_ZOOM,
 } from "@/lib/map";
-import type { LocationStatus, UserLocation, Venue } from "@/lib/types";
+import type {
+  Fixture,
+  LocationStatus,
+  UserLocation,
+  Venue,
+  VenuesResponse,
+  FixturesResponse,
+} from "@/lib/types";
 import { MapHUD } from "@/components/map/MapHUD";
+import { FixturesStrip } from "@/components/match/FixturesStrip";
 
 type ViewState = {
   longitude: number;
   latitude: number;
   zoom: number;
 };
+
+type BoundsLike = {
+  getSouth: () => number;
+  getWest: () => number;
+  getNorth: () => number;
+  getEast: () => number;
+};
+
+type MapLike = {
+  getBounds: () => BoundsLike;
+  getZoom: () => number;
+};
+
+export type VenuesStatus = "idle" | "loading" | "ready" | "zoom-in" | "error";
 
 export default function WatchMap() {
   const [viewState, setViewState] = useState<ViewState>({
@@ -40,24 +62,101 @@ export default function WatchMap() {
       : "error",
   );
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
-  const [mapRef, setMapRef] = useState<MapRef | null>(null);
+  const [venues, setVenues] = useState<Venue[]>([]);
+  const [venuesStatus, setVenuesStatus] = useState<VenuesStatus>("idle");
 
-  const onMapRef = useCallback((ref: MapRef | null) => {
-    setMapRef(ref);
-  }, []);
+  const [fixtures, setFixtures] = useState<Fixture[]>([]);
+  const [fixturesConfigured, setFixturesConfigured] = useState(true);
+  const [selectedFixtureId, setSelectedFixtureId] = useState<number | null>(
+    null,
+  );
 
-  useEffect(() => {
-    if (!("geolocation" in navigator)) {
+  const mapRef = useRef<MapRef | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const loadVenues = useCallback(async (map: MapLike) => {
+    if (map.getZoom() < MIN_VENUE_ZOOM) {
+      setVenues([]);
+      setVenuesStatus("zoom-in");
       return;
     }
 
+    const bounds = map.getBounds();
+    const query = new URLSearchParams({
+      south: String(bounds.getSouth()),
+      west: String(bounds.getWest()),
+      north: String(bounds.getNorth()),
+      east: String(bounds.getEast()),
+    });
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setVenuesStatus("loading");
+
+    try {
+      const res = await fetch(`/api/venues?${query}`, {
+        signal: controller.signal,
+      });
+      const data = (await res.json()) as VenuesResponse;
+
+      if (data.error === "bounds_too_large") {
+        setVenues([]);
+        setVenuesStatus("zoom-in");
+        return;
+      }
+      if (data.error) {
+        setVenuesStatus("error");
+        return;
+      }
+
+      setVenues(data.venues);
+      setVenuesStatus("ready");
+    } catch (error) {
+      if ((error as Error).name !== "AbortError") {
+        setVenuesStatus("error");
+      }
+    }
+  }, []);
+
+  const scheduleLoad = useCallback(
+    (map: MapLike) => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => loadVenues(map), 400);
+    },
+    [loadVenues],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch("/api/fixtures");
+        const data = (await res.json()) as FixturesResponse;
+        if (cancelled) return;
+        setFixturesConfigured(data.configured);
+        setFixtures(data.fixtures);
+      } catch {
+        if (!cancelled) setFixtures([]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!("geolocation" in navigator)) return;
+
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
-        const next = {
+        setUserLocation({
           lat: position.coords.latitude,
           lng: position.coords.longitude,
-        };
-        setUserLocation(next);
+        });
         setLocationStatus("ready");
       },
       (error) => {
@@ -65,36 +164,51 @@ export default function WatchMap() {
           error.code === error.PERMISSION_DENIED ? "denied" : "error",
         );
       },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 30_000,
-        timeout: 12_000,
-      },
+      { enableHighAccuracy: true, maximumAge: 30_000, timeout: 12_000 },
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
 
   useEffect(() => {
-    if (!userLocation || !mapRef) return;
+    const map = mapRef.current;
+    if (!userLocation || !map) return;
 
-    mapRef.flyTo({
+    map.flyTo({
       center: [userLocation.lng, userLocation.lat],
       zoom: LOCATED_ZOOM,
       duration: 1400,
     });
-  }, [userLocation, mapRef]);
+  }, [userLocation]);
 
-  const venues = useMemo(() => SAMPLE_VENUES, []);
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-[#0b1510]">
-      <MapHUD locationStatus={locationStatus} venueCount={venues.length} />
+      <MapHUD
+        locationStatus={locationStatus}
+        venueCount={venues.length}
+        venuesStatus={venuesStatus}
+      >
+        <FixturesStrip
+          fixtures={fixtures}
+          configured={fixturesConfigured}
+          selectedFixtureId={selectedFixtureId}
+          onSelect={setSelectedFixtureId}
+        />
+      </MapHUD>
 
       <Map
-        ref={onMapRef}
+        ref={mapRef}
         {...viewState}
         onMove={(event: ViewStateChangeEvent) => setViewState(event.viewState)}
+        onLoad={(event) => scheduleLoad(event.target as unknown as MapLike)}
+        onMoveEnd={(event) => scheduleLoad(event.target as unknown as MapLike)}
         mapStyle={MAP_STYLE}
         style={{ width: "100%", height: "100%" }}
         attributionControl={{ compact: true }}
@@ -131,8 +245,8 @@ export default function WatchMap() {
               className="group flex flex-col items-center"
               aria-label={venue.name}
             >
-              <span className="rounded-full bg-[#143221] px-2 py-0.5 text-[10px] font-medium text-[#d9f0e0] opacity-0 shadow transition group-hover:opacity-100">
-                {venue.area}
+              <span className="max-w-32 truncate rounded-full bg-[#143221] px-2 py-0.5 text-[10px] font-medium text-[#d9f0e0] opacity-0 shadow transition group-hover:opacity-100">
+                {venue.name}
               </span>
               <span className="mt-1 flex size-8 items-center justify-center rounded-full border border-[#8fd6a8]/40 bg-[#1b4d32] text-white shadow-lg shadow-black/30 transition group-hover:scale-110">
                 <Tv className="size-3.5" aria-hidden />
@@ -155,13 +269,32 @@ export default function WatchMap() {
               <p className="font-[family-name:var(--font-display)] text-base text-[#102218]">
                 {selectedVenue.name}
               </p>
-              <p className="text-xs text-[#4d6b58]">{selectedVenue.area}</p>
-              <p className="mt-2 text-xs text-[#2f4a3a]">
-                Fans: {selectedVenue.fanBases.join(", ")}
+              <p className="text-xs capitalize text-[#4d6b58]">
+                {selectedVenue.kind}
+                {selectedVenue.area ? ` · ${selectedVenue.area}` : ""}
               </p>
-              <p className="mt-1 text-xs text-[#2f4a3a]">
-                Screen {selectedVenue.screens} · {selectedVenue.seating}
-              </p>
+              <div className="mt-2 flex flex-wrap gap-1">
+                {selectedVenue.hasTv ? (
+                  <span className="rounded-full bg-[#e3f2e8] px-2 py-0.5 text-[10px] text-[#1b4d32]">
+                    Has TV
+                  </span>
+                ) : null}
+                {selectedVenue.outdoorSeating ? (
+                  <span className="rounded-full bg-[#e3f2e8] px-2 py-0.5 text-[10px] text-[#1b4d32]">
+                    Outdoor seating
+                  </span>
+                ) : null}
+              </div>
+              {selectedVenue.website ? (
+                <a
+                  href={selectedVenue.website}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-block text-xs font-medium text-[#1f9d57] underline"
+                >
+                  Visit website
+                </a>
+              ) : null}
             </div>
           </Popup>
         ) : null}
