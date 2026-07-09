@@ -9,5 +9,8 @@ export const FALLBACK_LOCATION: UserLocation = {
 export const DEFAULT_ZOOM = 13;
 export const LOCATED_ZOOM = 14;
 
+/** Below this zoom the viewport is too large to query venues usefully. */
+export const MIN_VENUE_ZOOM = 12;
+
 /** Free OSM vector basemap — no API key required. */
 export const MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
