@@ -19,8 +19,19 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) and allow location access.
 
+## Features
+
+- **Match / Team / Vibe filters** that actually drive the map
+- **Tribe ranking** — venues scored by fan-base fit, vibe, screens, capacity & distance
+- **Ranked results list** (left rail on desktop, bottom sheet on mobile) synced with the map
+- **Top-pick highlighting** on the map, plus dimming of non-matching spots
+- **Distance from you** and one-tap **Directions**
+- Sample knockout-stage **fixtures** anchored to "today" so the schedule always feels live
+
 ## Next
 
-- Pull real fixtures
-- Nearby venues from OpenStreetMap
-- Tribe ranking + AI explanations
+- Pull real fixtures from a live API
+- Nearby venues from OpenStreetMap (Overpass) so it works in any city
+- Live crowd / headcount + RSVP for social proof
+- Save favourites and share a match-day plan
+- AI concierge: natural-language search with explanations
