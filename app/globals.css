@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0b1510;
+  --foreground: #e8f5e9;
+  --pitch: #1b4d32;
+  --pitch-glow: #2bb673;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-body);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Soften default MapLibre popup chrome to match the HUD. */
+.tribewatch-popup .maplibregl-popup-content {
+  border-radius: 14px;
+  padding: 10px 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+}
+
+.tribewatch-popup .maplibregl-popup-close-button {
+  font-size: 16px;
+  padding: 4px 8px;
+  color: #4d6b58;
+}
+
+.maplibregl-ctrl-group {
+  border-radius: 12px !important;
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25) !important;
+}
