@@ -1,3 +1,6 @@
+/** Where a venue record came from. */
+export type VenueSource = "curated" | "osm" | "user";
+
 export type Venue = {
   id: string;
   name: string;
@@ -9,12 +12,17 @@ export type Venue = {
   seating: "standing" | "mixed" | "seated";
   vibes: string[];
   /** Rough standing/seated headcount, used for crowd + ranking signals. */
-  capacity: number;
+  capacity?: number;
   /** 1 = cheap pint, 3 = pricey. */
-  priceLevel: 1 | 2 | 3;
+  priceLevel?: 1 | 2 | 3;
   /** Whether the venue takes table / area reservations for big matches. */
-  bookable: boolean;
+  bookable?: boolean;
+  /** Provenance — curated seed, OpenStreetMap import, or user-added. */
+  source?: VenueSource;
 };
+
+export const DEFAULT_CAPACITY = 120;
+export const DEFAULT_PRICE_LEVEL: 1 | 2 | 3 = 2;
 
 export type UserLocation = {
   lat: number;
@@ -49,6 +57,18 @@ export type Fixture = {
   stage: FixtureStage;
   /** Host city of the actual match (not the watch venue). */
   hostCity: string;
+  /** Inline team display, used when a code isn't in our local team table (live data). */
+  homeName?: string;
+  homeFlag?: string;
+  awayName?: string;
+  awayFlag?: string;
+};
+
+/** A resolved fixture participant, safe to render regardless of data source. */
+export type FixtureSide = {
+  code: string;
+  name: string;
+  flag: string;
 };
 
 /** Canonical, filterable vibe buckets that map onto free-text venue vibes. */
@@ -58,7 +78,11 @@ export type Filters = {
   fixtureId: string | null;
   teamCode: string | null;
   vibe: VibeKey | null;
+  /** Only show venues the user has saved. */
+  savedOnly: boolean;
 };
+
+export type Busyness = "quiet" | "filling" | "busy" | "packed";
 
 /** A venue plus its computed relevance for the active filters. */
 export type RankedVenue = {
@@ -71,4 +95,16 @@ export type RankedVenue = {
   reasons: string[];
   /** True when the venue clearly hosts a crowd for the selected team/match. */
   isTribeMatch: boolean;
+  /** Estimated fans heading here for the selected fixture (null if no fixture). */
+  going: number | null;
+  /** Crowd level derived from `going` vs capacity. */
+  busyness: Busyness | null;
+};
+
+/** A user's saved spots + match RSVPs, persisted locally and shareable. */
+export type Plan = {
+  /** Venue ids the user saved. */
+  saved: string[];
+  /** RSVP keys, each `${fixtureId}::${venueId}`. */
+  rsvps: string[];
 };

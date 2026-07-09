@@ -1,11 +1,18 @@
 import type {
+  Busyness,
+  Fixture,
   RankedVenue,
   Team,
   UserLocation,
   Venue,
   VibeKey,
 } from "@/lib/types";
+import { DEFAULT_CAPACITY } from "@/lib/types";
 import { getVibe, venueMatchesVibe } from "@/lib/vibes";
+import { isNeutralFriendly, venueSupportsTeam } from "@/lib/tribe";
+import { busynessFor, estimateGoing } from "@/lib/attendance";
+
+export { venueSupportsTeam } from "@/lib/tribe";
 
 const EARTH_RADIUS_KM = 6371;
 
@@ -26,24 +33,11 @@ export function distanceKm(a: UserLocation, b: UserLocation): number {
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(h));
 }
 
-function normalizedFanBases(venue: Venue): string[] {
-  return venue.fanBases.map((fb) => fb.toLowerCase());
-}
-
-/** Whether a venue is known to host a crowd for the given team. */
-export function venueSupportsTeam(venue: Venue, team: Team): boolean {
-  const bases = normalizedFanBases(venue);
-  const aliases = [team.name.toLowerCase(), ...(team.aliases ?? [])];
-  return aliases.some((alias) => bases.includes(alias));
-}
-
-function isNeutralFriendly(venue: Venue): boolean {
-  return normalizedFanBases(venue).includes("neutral");
-}
-
 export type RankInput = {
   venues: Venue[];
   team: Team | null;
+  /** The selected fixture, if any (drives crowd estimates). */
+  fixture: Fixture | null;
   /** Teams playing in the selected fixture (empty when no fixture chosen). */
   fixtureTeams: Team[];
   vibe: VibeKey | null;
@@ -53,10 +47,17 @@ export type RankInput = {
 function scoreVenue(
   venue: Venue,
   input: RankInput,
-): { score: number; reasons: string[]; isTribeMatch: boolean } {
+): {
+  score: number;
+  reasons: string[];
+  isTribeMatch: boolean;
+  going: number | null;
+  busyness: Busyness | null;
+} {
   const reasons: string[] = [];
   let score = 40;
   let isTribeMatch = false;
+  const capacity = venue.capacity ?? DEFAULT_CAPACITY;
 
   // Team / tribe affinity — the strongest signal.
   if (input.team) {
@@ -97,6 +98,18 @@ function scoreVenue(
     }
   }
 
+  // Crowd / social proof for the selected fixture.
+  let going: number | null = null;
+  let busyness: Busyness | null = null;
+  if (input.fixture) {
+    going = estimateGoing(venue, input.fixture, input.fixtureTeams);
+    busyness = busynessFor(going, capacity);
+    score += Math.min(8, (going / capacity) * 8);
+    if (busyness === "packed" || busyness === "busy") {
+      reasons.push(`🔥 ${going} going`);
+    }
+  }
+
   // Screens + capacity make for a better big-match watch.
   if (venue.screens === "large") {
     score += 6;
@@ -104,7 +117,7 @@ function scoreVenue(
   } else if (venue.screens === "medium") {
     score += 3;
   }
-  score += Math.min(8, (venue.capacity / 300) * 8);
+  score += Math.min(8, (capacity / 300) * 8);
 
   // Proximity.
   let distance: number | null = null;
@@ -122,17 +135,30 @@ function scoreVenue(
     score: Math.round(Math.max(0, Math.min(100, score))),
     reasons: reasons.slice(0, 3),
     isTribeMatch,
+    going,
+    busyness,
   };
 }
 
 /** Rank venues for the active filters, best first. */
 export function rankVenues(input: RankInput): RankedVenue[] {
   const ranked = input.venues.map<RankedVenue>((venue) => {
-    const { score, reasons, isTribeMatch } = scoreVenue(venue, input);
+    const { score, reasons, isTribeMatch, going, busyness } = scoreVenue(
+      venue,
+      input,
+    );
     const distance = input.userLocation
       ? distanceKm(input.userLocation, venue)
       : null;
-    return { venue, score, distanceKm: distance, reasons, isTribeMatch };
+    return {
+      venue,
+      score,
+      distanceKm: distance,
+      reasons,
+      isTribeMatch,
+      going,
+      busyness,
+    };
   });
 
   return ranked.sort((a, b) => {
