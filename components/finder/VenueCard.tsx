@@ -1,8 +1,9 @@
 "use client";
 
-import { Crown, Navigation, Tv, Users } from "lucide-react";
+import { Check, Crown, Navigation, Star, Tv, Users } from "lucide-react";
 import type { RankedVenue } from "@/lib/types";
 import { formatDistance } from "@/lib/ranking";
+import { busynessColor, busynessLabel } from "@/lib/attendance";
 
 type VenueCardProps = {
   ranked: RankedVenue;
@@ -10,11 +11,22 @@ type VenueCardProps = {
   selected: boolean;
   isTopPick: boolean;
   filtersActive: boolean;
+  isSaved: boolean;
+  isGoing: boolean;
+  canRsvp: boolean;
   onSelect: () => void;
+  onToggleSave: () => void;
+  onToggleGoing: () => void;
 };
 
 function directionsHref(lat: number, lng: number): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+}
+
+function sourceBadge(source: RankedVenue["venue"]["source"]): string | null {
+  if (source === "osm") return "OSM";
+  if (source === "user") return "Yours";
+  return null;
 }
 
 export function VenueCard({
@@ -23,10 +35,16 @@ export function VenueCard({
   selected,
   isTopPick,
   filtersActive,
+  isSaved,
+  isGoing,
+  canRsvp,
   onSelect,
+  onToggleSave,
+  onToggleGoing,
 }: VenueCardProps) {
-  const { venue, score, distanceKm, reasons } = ranked;
+  const { venue, score, distanceKm, reasons, going, busyness } = ranked;
   const distance = formatDistance(distanceKm);
+  const badge = sourceBadge(venue.source);
 
   return (
     <div
@@ -64,11 +82,42 @@ export function VenueCard({
             <p className="truncate font-[family-name:var(--font-display)] text-[15px] text-[#e8f5e9]">
               {venue.name}
             </p>
-            {distance ? (
-              <span className="shrink-0 text-xs text-[#8fb39c]">{distance}</span>
+            <div className="flex shrink-0 items-center gap-2">
+              {distance ? (
+                <span className="text-xs text-[#8fb39c]">{distance}</span>
+              ) : null}
+              <button
+                type="button"
+                aria-label={isSaved ? "Remove from saved" : "Save spot"}
+                aria-pressed={isSaved}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggleSave();
+                }}
+                className={
+                  "rounded-full p-1 transition " +
+                  (isSaved
+                    ? "text-[#f5c451]"
+                    : "text-[#5f7d6b] hover:text-[#cfe3d5]")
+                }
+              >
+                <Star
+                  className="size-4"
+                  fill={isSaved ? "currentColor" : "none"}
+                  aria-hidden
+                />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <p className="text-xs text-[#8fb39c]">{venue.area}</p>
+            {badge ? (
+              <span className="rounded bg-[#1c3325] px-1.5 py-0.5 text-[10px] text-[#9bb5a3]">
+                {badge}
+              </span>
             ) : null}
           </div>
-          <p className="text-xs text-[#8fb39c]">{venue.area}</p>
 
           {reasons.length > 0 ? (
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -83,21 +132,25 @@ export function VenueCard({
             </div>
           ) : null}
 
-          <div className="mt-2.5 flex items-center gap-3 text-[11px] text-[#7fa38d]">
-            <span className="inline-flex items-center gap-1">
-              <Users className="size-3.5" aria-hidden />
-              {venue.capacity}
-            </span>
+          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#7fa38d]">
+            {busyness && going != null ? (
+              <span className={"inline-flex items-center gap-1 " + busynessColor(busyness)}>
+                <span className="size-1.5 rounded-full bg-current" aria-hidden />
+                {busynessLabel(busyness)} · {going} going
+              </span>
+            ) : venue.capacity ? (
+              <span className="inline-flex items-center gap-1">
+                <Users className="size-3.5" aria-hidden />
+                {venue.capacity}
+              </span>
+            ) : null}
             <span className="inline-flex items-center gap-1">
               <Tv className="size-3.5" aria-hidden />
               {venue.screens}
             </span>
-            <span aria-label={`price level ${venue.priceLevel}`}>
-              {"£".repeat(venue.priceLevel)}
-            </span>
-            {venue.bookable ? (
-              <span className="rounded bg-[#123024] px-1.5 py-0.5 text-[10px] text-[#7fd8a3]">
-                Bookable
+            {venue.priceLevel ? (
+              <span aria-label={`price level ${venue.priceLevel}`}>
+                {"£".repeat(venue.priceLevel)}
               </span>
             ) : null}
             <a
@@ -114,20 +167,50 @@ export function VenueCard({
         </div>
       </div>
 
-      {filtersActive ? (
+      {(filtersActive || canRsvp) ? (
         <div className="mt-3 flex items-center gap-2">
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
-            <div
+          {filtersActive ? (
+            <>
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className={
+                    "h-full rounded-full " +
+                    (isTopPick ? "bg-[#f5c451]" : "bg-[#2bb673]")
+                  }
+                  style={{ width: `${score}%` }}
+                />
+              </div>
+              <span className="w-9 text-right text-[11px] tabular-nums text-[#8fb39c]">
+                {score}%
+              </span>
+            </>
+          ) : (
+            <span className="flex-1" />
+          )}
+          {canRsvp ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleGoing();
+              }}
+              aria-pressed={isGoing}
               className={
-                "h-full rounded-full " +
-                (isTopPick ? "bg-[#f5c451]" : "bg-[#2bb673]")
+                "inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition " +
+                (isGoing
+                  ? "bg-[#1f9d57] text-white"
+                  : "border border-[#2bb673]/50 text-[#7fd8a3] hover:bg-[#12281c]")
               }
-              style={{ width: `${score}%` }}
-            />
-          </div>
-          <span className="w-9 text-right text-[11px] tabular-nums text-[#8fb39c]">
-            {score}%
-          </span>
+            >
+              {isGoing ? (
+                <>
+                  <Check className="size-3.5" aria-hidden /> Going
+                </>
+              ) : (
+                "I'm in"
+              )}
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>

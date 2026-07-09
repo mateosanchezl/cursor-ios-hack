@@ -1,10 +1,10 @@
 "use client";
 
-import { ChevronDown, X } from "lucide-react";
+import { ChevronDown, Star, X } from "lucide-react";
 import type { Filters, Fixture, Team } from "@/lib/types";
-import { getTeam } from "@/data/teams";
 import { VIBES } from "@/lib/vibes";
 import { formatKickoff, kickoffRelative } from "@/lib/ranking";
+import { awaySide, homeSide } from "@/lib/fixtures";
 
 type FilterBarProps = {
   fixtures: Fixture[];
@@ -12,16 +12,17 @@ type FilterBarProps = {
   filters: Filters;
   onChange: (patch: Partial<Filters>) => void;
   onClear: () => void;
+  savedCount: number;
 };
 
 function fixtureLabel(fixture: Fixture): string {
-  const home = getTeam(fixture.homeCode);
-  const away = getTeam(fixture.awayCode);
-  return `${home?.flag ?? ""} ${home?.code ?? fixture.homeCode} v ${
-    away?.flag ?? ""
-  } ${away?.code ?? fixture.awayCode} · ${formatKickoff(fixture.kickoff)} (${kickoffRelative(
+  const home = homeSide(fixture);
+  const away = awaySide(fixture);
+  const homeLabel = home.name.length <= 4 ? home.name : home.code;
+  const awayLabel = away.name.length <= 4 ? away.name : away.code;
+  return `${home.flag} ${homeLabel} v ${away.flag} ${awayLabel} · ${formatKickoff(
     fixture.kickoff,
-  )})`;
+  )} (${kickoffRelative(fixture.kickoff)})`;
 }
 
 const selectClass =
@@ -33,11 +34,13 @@ export function FilterBar({
   filters,
   onChange,
   onClear,
+  savedCount,
 }: FilterBarProps) {
   const hasFilters =
     filters.fixtureId !== null ||
     filters.teamCode !== null ||
-    filters.vibe !== null;
+    filters.vibe !== null ||
+    filters.savedOnly;
 
   return (
     <div className="flex flex-col gap-3">
@@ -121,16 +124,40 @@ export function FilterBar({
         </div>
       </div>
 
-      {hasFilters ? (
+      <div className="flex items-center justify-between gap-2">
         <button
           type="button"
-          onClick={onClear}
-          className="inline-flex w-fit items-center gap-1 rounded-full px-2.5 py-1 text-xs text-[#9bb5a3] transition hover:text-[#e8f5e9]"
+          aria-pressed={filters.savedOnly}
+          onClick={() => onChange({ savedOnly: !filters.savedOnly })}
+          className={
+            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition " +
+            (filters.savedOnly
+              ? "border-[#f5c451] bg-[#f5c451]/15 text-[#f5c451]"
+              : "border-white/10 bg-[#132018]/70 text-[#cfe3d5] hover:border-white/25")
+          }
         >
-          <X className="size-3.5" aria-hidden />
-          Clear filters
+          <Star
+            className="size-3.5"
+            aria-hidden
+            fill={filters.savedOnly ? "currentColor" : "none"}
+          />
+          Saved
+          {savedCount > 0 ? (
+            <span className="text-xs text-[#9bb5a3]">{savedCount}</span>
+          ) : null}
         </button>
-      ) : null}
+
+        {hasFilters ? (
+          <button
+            type="button"
+            onClick={onClear}
+            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs text-[#9bb5a3] transition hover:text-[#e8f5e9]"
+          >
+            <X className="size-3.5" aria-hidden />
+            Clear
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }
