@@ -38,7 +38,7 @@ Open [http://localhost:3000](http://localhost:3000) and allow location access.
 **Real data & reach**
 
 - **Live fixtures** via `/api/fixtures` (football-data.org) with graceful fallback to a bundled sample schedule
-- **Real venues from OpenStreetMap** (Overpass) with a "Search this area" button — works in any city, no key
+- **Real venues from OpenStreetMap** via `/api/osm` (Overpass proxy with User-Agent + mirrors) — "Search this area" works in any city, no key
 - **Add your own spot** by dropping a pin on the map
 - **Kick-off alerts** for your team, with optional browser notifications
 
